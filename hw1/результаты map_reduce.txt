@@ -1,0 +1,12 @@
+numpy результаты:
+np.mean(df['price']) = 152.7206871868289
+np.var(df['price']) = 57672.84569843359
+map_reduce результаты:
+sh map_reduce_mean.sh:
++ hdfs dfs -cat /output/part-00000
+2022-10-17 20:43:42,474 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+152.72068718682894
+sh map_reduce_var.sh:
++ hdfs dfs -cat /output_var/part-00000
+2022-10-17 20:44:36,137 INFO sasl.SaslDataTransferClient: SASL encryption trust check: localHostTrusted = false, remoteHostTrusted = false
+57672.84569843284

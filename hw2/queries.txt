@@ -1,0 +1,96 @@
+docker cp artists.csv docker-hadoop-hive-parquet-master-hive-server-1:/opt
+
+docker exec -it docker-hadoop-hive-parquet-master-hive-server-1 /bin/bash
+
+/opt/hive/bin/beeline -u jdbc:hive2://localhost:10000
+
+CREATE TABLE art (mbid STRING, artist_mb STRING, artist_lastfm STRING, country_mb STRING, country_lastfm STRING, tags_mb STRING, tags_lastfm STRING, listeners_lastfm INT, scrobbles_lastfm INT, ambiguous_artist BOOLEAN) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' TBLPROPERTIES("skip.header.line.count"="1");
+
+LOAD DATA LOCAL INPATH '/opt/artists.csv' OVERWRITE INTO TABLE art;
+
+a) 
+select artist_lastfm, scrobbles_lastfm from default.art order by scrobbles_lastfm desc limit 1;
+
+Output:
++----------------+-------------------+
+| artist_lastfm  | scrobbles_lastfm  |
++----------------+-------------------+
+| The Beatles    | 517126254         |
++----------------+-------------------+
+
+b)
+with all_tags as (
+  select trim(raw_tag) as tag
+  from default.art
+  lateral view explode(split(tags_lastfm, ';')) tagTable as raw_tag
+)
+select count(tag) cnt_tag, tag 
+from all_tags 
+where tag != ''
+group by tag
+order by cnt_tag desc
+limit 1;
+
+Output:
++----------+------------+
+| cnt_tag  |    tag     |
++----------+------------+
+| 99540    | seen live  |
++----------+------------+
+
+c)
+with all_tags as (
+  select artist_lastfm, trim(raw_tag) as tag
+  from default.art
+  lateral view explode(split(tags_lastfm, ';')) tagTable as raw_tag
+), 
+top_10_tags as (
+  select count(tag) cnt_tag, tag 
+  from all_tags 
+  where tag != ''
+  group by tag
+  order by cnt_tag desc
+  limit 10
+)
+select artist_lastfm, count(*) as cnt_artist
+from all_tags
+where tag in (select tag from top_10_tags)
+group by artist_lastfm
+order by cnt_artist desc
+limit 10;
+
+Output:
++----------------+-------------+
+| artist_lastfm  | cnt_artist  |
++----------------+-------------+
+| Eden           | 198         |
+| Karma          | 182         |
+| Spectrum       | 153         |
+| Indigo         | 152         |
+| Joy            | 145         |
+| Aura           | 144         |
+| Mirage         | 140         |
+| Nemesis        | 138         |
+| Exit           | 136         |
+| Angel          | 133         |
++----------------+-------------+
+
+d) Топ 5 стран с наибольшим числом записей в датасете
+
+select country_lastfm, count(*) as cnt_country 
+from default.art 
+where trim(country_lastfm) != ''
+group by country_lastfm
+order by cnt_country desc
+limit 5;
+
+Output:
++-----------------+--------------+
+| country_lastfm  | cnt_country  |
++-----------------+--------------+
+| United States   | 26542        |
+| United Kingdom  | 14209        |
+| Japan           | 12784        |
+| Germany         | 12444        |
+| France          | 8589         |
++-----------------+--------------+
